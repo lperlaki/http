@@ -1210,7 +1210,7 @@ impl HeaderName {
     /// error: any use of this value will cause an error
     ///     --> http/src/header/name.rs:1241:13
     ///      |
-    /// 1241 |             ([] as [u8; 0])[0]; // Invalid header name
+    /// 1241 |             crate::const_panic(); // Invalid header name
     ///      |             ^^^^^^^^^^^^^^^^^^
     ///      |             |
     ///      |             index out of bounds: the length is 0 but the index is 0
@@ -1249,7 +1249,6 @@ impl HeaderName {
     /// let a = HeaderName::from_static("foobar");
     /// let b = HeaderName::from_static("FOOBAR"); // This line panics!
     /// ```
-    #[allow(unconditional_panic)] // required for the panic circumvention
     pub const fn from_static(src: &'static str) -> HeaderName {
         let name_bytes = src.as_bytes();
         if let Some(standard) = StandardHeader::from_bytes(name_bytes) {
@@ -1269,13 +1268,7 @@ impl HeaderName {
                 i += 1;
             }
         } {
-            // TODO: When msrv is bumped to larger than 1.57, this should be
-            // replaced with `panic!` macro.
-            // https://blog.rust-lang.org/2021/12/02/Rust-1.57.0.html#panic-in-const-contexts
-            //
-            // See the panics section of this method's document for details.
-            #[allow(clippy::no_effect)]
-            ([] as [u8; 0])[0]; // Invalid header name
+            crate::const_panic(); // Invalid header name
         }
 
         HeaderName {

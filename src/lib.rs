@@ -195,6 +195,16 @@ pub use crate::status::StatusCode;
 pub use crate::uri::Uri;
 pub use crate::version::Version;
 
+// FIXME: replace with panic! when msrv is 1.56
+#[inline]
+#[track_caller]
+const fn const_panic() -> ! {
+    #[allow(unconditional_panic)]
+    #[allow(clippy::no_effect)]
+    ([] as [u8; 0])[0];
+    unreachable!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

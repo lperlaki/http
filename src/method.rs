@@ -123,7 +123,7 @@ impl Method {
                 _ => Method::extension_inline(src),
             },
             _ => {
-                if src.len() < InlineExtension::MAX {
+                if src.len() <= InlineExtension::MAX {
                     Method::extension_inline(src)
                 } else {
                     let allocated = AllocatedExtension::new(src)?;
@@ -131,6 +131,26 @@ impl Method {
                     Ok(Method(ExtensionAllocated(allocated)))
                 }
             }
+        }
+    }
+
+    /// Converts a static slice of bytes to an HTTP method without copying.
+    pub const fn from_static(src: &'static [u8]) -> Method {
+        match src {
+            b"" => crate::const_panic(), // invalid method len
+            b"GET" => Method(Get),
+            b"PUT" => Method(Put),
+            b"POST" => Method(Post),
+            b"HEAD" => Method(Head),
+            b"PATCH" => Method(Patch),
+            b"TRACE" => Method(Trace),
+            b"DELETE" => Method(Delete),
+            b"OPTIONS" => Method(Options),
+            b"CONNECT" => Method(Connect),
+            method if method.len() <= InlineExtension::MAX => {
+                Method(ExtensionInline(InlineExtension::from_static(method)))
+            }
+            _ => crate::const_panic(), // invalid method len
         }
     }
 
@@ -283,7 +303,7 @@ impl FromStr for Method {
 }
 
 impl InvalidMethod {
-    fn new() -> InvalidMethod {
+    const fn new() -> InvalidMethod {
         InvalidMethod { _priv: () }
     }
 }
@@ -328,6 +348,25 @@ mod extension {
             // Invariant: write_checked ensures that the first src.len() bytes
             // of data are valid UTF-8.
             Ok(InlineExtension(data, src.len() as u8))
+        }
+
+        pub const fn from_static(src: &'static [u8]) -> InlineExtension {
+            let mut i = 0;
+            let mut dst = [0; InlineExtension::MAX];
+            if src.len() > InlineExtension::MAX {
+                crate::const_panic(); // invalid method len
+            }
+            while i < src.len() {
+                let byte = src[i];
+                let v = METHOD_CHARS[byte as usize];
+                if v == 0 {
+                    crate::const_panic(); // invalid Method bytes
+                }
+                dst[i] = byte;
+                i += 1;
+            }
+
+            InlineExtension(dst, i as u8)
         }
 
         pub fn as_str(&self) -> &str {
@@ -465,5 +504,12 @@ mod test {
 
         let long_method = "This_is_a_very_long_method.It_is_valid_but_unlikely.";
         assert_eq!(Method::from_str(long_method).unwrap(), long_method);
+    }
+
+    #[test]
+    fn const_method() {
+        const METHOD: Method = Method::from_static(b"PROPFIND");
+
+        assert_eq!(METHOD, "PROPFIND");
     }
 }
